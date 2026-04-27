@@ -6,18 +6,27 @@ pipeline {
         DETECT_PROJECT_NAME = "qe-ninja-blackduck-project-qa"
         DETECT_VERSION_NAME = "1.0.0"
         GO_VERSION="1.21.2"
-        BD_URL = credentials('BLACKDUCK_URL') // or use credentials if you really want
-        BD_TOKEN = credentials('BLACKDUCK_API_TOKEN') // must be 'Secret text'
+        BD_URL = credentials('BLACKDUCK_URL')
+        BD_TOKEN = credentials('BLACKDUCK_API_TOKEN')
     }
-    
+
     triggers {
         cron '15 03 * * 1-5' // Runs at 03:15 on every day-of-week from Monday through Friday
-         }
-    
+    }
+
     stages {
         stage('Download and Extract Bridge CLI') {
+            agent {
+                docker {
+                    image 'ubuntu:22.04'
+                    args '-v ${WORKSPACE}:${WORKSPACE} -w ${WORKSPACE}'
+                    reuseNode true
+                }
+            }
             steps {
                 sh '''
+                    apt-get update && apt-get install -y curl default-jre
+
                     mkdir -p "$BRIDGE_CLI_DIR"
 
                     # Download with error check
@@ -45,15 +54,22 @@ pipeline {
             }
         }
 
-
         stage('Run Black Duck Bridge CLI with SARIF Output') {
+            agent {
+                docker {
+                    image 'ubuntu:22.04'
+                    args '-v ${WORKSPACE}:${WORKSPACE} -w ${WORKSPACE}'
+                    reuseNode true
+                }
+            }
             steps {
                 sh """
-                    
+                    apt-get update && apt-get install -y curl tar
+
                     curl -LO https://go.dev/dl/go${GO_VERSION}.linux-amd64.tar.gz
                     rm -rf /tmp/go
                     tar -C /tmp -xzf go${GO_VERSION}.linux-amd64.tar.gz
-                    export PATH=/tmp/go/bin:$PATH
+                    export PATH=/tmp/go/bin:\$PATH
 
                     "${BRIDGE_CLI_DIR}/bridge-cli-bundle-linux64/bridge-cli" \
                         --stage blackducksca \
@@ -76,6 +92,7 @@ pipeline {
                 '''
             }
         }
+
         stage('Security Scan') {
             steps {
                 registerSecurityScan(
@@ -86,11 +103,5 @@ pipeline {
                 )
             }
         }
-
-        // stage('Archive SARIF Report') {
-        //     steps {
-        //         archiveArtifacts artifacts: 'output/*.sarif', fingerprint: true
-        //     }
-        // }
     }
 }
