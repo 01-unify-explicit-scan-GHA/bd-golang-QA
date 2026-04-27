@@ -34,7 +34,7 @@ spec:
             steps {
                 container('ubuntu') {
                     sh '''
-                        apt-get update && apt-get install -y curl default-jre
+                        apt-get update && apt-get install -y curl default-jdk
 
                         mkdir -p "$BRIDGE_CLI_DIR"
 
