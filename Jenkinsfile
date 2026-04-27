@@ -17,32 +17,42 @@ pipeline {
     stages {
         stage('Download and Extract Bridge CLI') {
             agent {
-                docker {
-                    image 'ubuntu:22.04'
-                    args '-v ${WORKSPACE}:${WORKSPACE} -w ${WORKSPACE}'
-                    reuseNode true
+                kubernetes {
+                    yaml '''
+apiVersion: v1
+kind: Pod
+spec:
+  containers:
+  - name: ubuntu
+    image: ubuntu:22.04
+    command:
+    - cat
+    tty: true
+'''
                 }
             }
             steps {
-                sh '''
-                    apt-get update && apt-get install -y curl default-jre
+                container('ubuntu') {
+                    sh '''
+                        apt-get update && apt-get install -y curl default-jre
 
-                    mkdir -p "$BRIDGE_CLI_DIR"
+                        mkdir -p "$BRIDGE_CLI_DIR"
 
-                    # Download with error check
-                    curl -f -L "https://repo.blackduck.com/bds-integrations-release/com/blackduck/integration/bridge/binaries/bridge-cli-bundle/latest/bridge-cli-bundle-linux64.zip" \
-                        -o bridge.zip
+                        # Download with error check
+                        curl -f -L "https://repo.blackduck.com/bds-integrations-release/com/blackduck/integration/bridge/binaries/bridge-cli-bundle/latest/bridge-cli-bundle-linux64.zip" \
+                            -o bridge.zip
 
-                    # Extract with jar (no unzip needed)
-                    (cd "$BRIDGE_CLI_DIR" && jar -xf ../bridge.zip)
+                        # Extract with jar (no unzip needed)
+                        (cd "$BRIDGE_CLI_DIR" && jar -xf ../bridge.zip)
 
-                    # check if the binary exists
-                    ls -lrt ${BRIDGE_CLI_DIR}
-                    chmod +x "$BRIDGE_CLI_DIR"/bridge-cli-bundle-linux64/bridge-cli
+                        # check if the binary exists
+                        ls -lrt ${BRIDGE_CLI_DIR}
+                        chmod +x "$BRIDGE_CLI_DIR"/bridge-cli-bundle-linux64/bridge-cli
 
-                    # Verify
-                    "$BRIDGE_CLI_DIR/bridge-cli-bundle-linux64/bridge-cli" --version
-                '''
+                        # Verify
+                        "$BRIDGE_CLI_DIR/bridge-cli-bundle-linux64/bridge-cli" --version
+                    '''
+                }
             }
         }
 
@@ -56,30 +66,40 @@ pipeline {
 
         stage('Run Black Duck Bridge CLI with SARIF Output') {
             agent {
-                docker {
-                    image 'ubuntu:22.04'
-                    args '-v ${WORKSPACE}:${WORKSPACE} -w ${WORKSPACE}'
-                    reuseNode true
+                kubernetes {
+                    yaml '''
+apiVersion: v1
+kind: Pod
+spec:
+  containers:
+  - name: ubuntu
+    image: ubuntu:22.04
+    command:
+    - cat
+    tty: true
+'''
                 }
             }
             steps {
-                sh """
-                    apt-get update && apt-get install -y curl tar
+                container('ubuntu') {
+                    sh """
+                        apt-get update && apt-get install -y curl tar
 
-                    curl -LO https://go.dev/dl/go${GO_VERSION}.linux-amd64.tar.gz
-                    rm -rf /tmp/go
-                    tar -C /tmp -xzf go${GO_VERSION}.linux-amd64.tar.gz
-                    export PATH=/tmp/go/bin:\$PATH
+                        curl -LO https://go.dev/dl/go${GO_VERSION}.linux-amd64.tar.gz
+                        rm -rf /tmp/go
+                        tar -C /tmp -xzf go${GO_VERSION}.linux-amd64.tar.gz
+                        export PATH=/tmp/go/bin:\$PATH
 
-                    "${BRIDGE_CLI_DIR}/bridge-cli-bundle-linux64/bridge-cli" \
-                        --stage blackducksca \
-                        blackducksca.url="https://blackduck.saas-preprod.beescloud.com/" \
-                        blackducksca.scan.full=true \
-                        blackducksca.token="${BD_TOKEN}" \
-                        blackducksca_reports_sarif_create=true \
-                        blackducksca_reports_sarif_file_path="output/blackduck-sarif-report.sarif" \
-                        blackducksca_reports_sarif_groupSCAIssues=false
-                """
+                        "${BRIDGE_CLI_DIR}/bridge-cli-bundle-linux64/bridge-cli" \
+                            --stage blackducksca \
+                            blackducksca.url="https://blackduck.saas-preprod.beescloud.com/" \
+                            blackducksca.scan.full=true \
+                            blackducksca.token="${BD_TOKEN}" \
+                            blackducksca_reports_sarif_create=true \
+                            blackducksca_reports_sarif_file_path="output/blackduck-sarif-report.sarif" \
+                            blackducksca_reports_sarif_groupSCAIssues=false
+                    """
+                }
             }
         }
 
