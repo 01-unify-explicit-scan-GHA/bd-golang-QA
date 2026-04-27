@@ -15,57 +15,6 @@ pipeline {
     }
 
     stages {
-        stage('Download and Extract Bridge CLI') {
-            agent {
-                kubernetes {
-                    yaml '''
-apiVersion: v1
-kind: Pod
-spec:
-  containers:
-  - name: ubuntu
-    image: ubuntu:22.04
-    command:
-    - cat
-    tty: true
-'''
-                }
-            }
-            steps {
-                container('ubuntu') {
-                    sh '''
-                        apt-get update && apt-get install -y curl default-jdk
-
-                        # Download with error check
-                        curl -f -L "https://repo.blackduck.com/bds-integrations-release/com/blackduck/integration/bridge/binaries/bridge-cli-bundle/latest/bridge-cli-bundle-linux64.zip" \
-                            -o bridge.zip
-
-                        # Extract with jar to current directory
-                        jar -xf bridge.zip
-
-                        # Move extracted directory to BRIDGE_CLI_DIR
-                        mkdir -p "$BRIDGE_CLI_DIR"
-                        mv bridge-cli-bundle-linux64 "$BRIDGE_CLI_DIR/"
-
-                        # check if the binary exists
-                        ls -lrt ${BRIDGE_CLI_DIR}
-                        chmod +x "$BRIDGE_CLI_DIR"/bridge-cli-bundle-linux64/bridge-cli
-
-                        # Verify
-                        "$BRIDGE_CLI_DIR/bridge-cli-bundle-linux64/bridge-cli" --version
-                    '''
-                }
-            }
-        }
-
-        stage('Prepare Bridge CLI') {
-            steps {
-                sh '''
-                    chmod -R +x bridge-cli/bridge-cli-bundle-linux64/adapters
-                '''
-            }
-        }
-
         stage('Run Black Duck Bridge CLI with SARIF Output') {
             agent {
                 kubernetes {
@@ -85,13 +34,26 @@ spec:
             steps {
                 container('ubuntu') {
                     sh """
-                        apt-get update && apt-get install -y curl tar
+                        apt-get update && apt-get install -y curl tar default-jdk
 
+                        # Download and extract Bridge CLI
+                        curl -f -L "https://repo.blackduck.com/bds-integrations-release/com/blackduck/integration/bridge/binaries/bridge-cli-bundle/latest/bridge-cli-bundle-linux64.zip" \
+                            -o bridge.zip
+                        jar -xf bridge.zip
+                        mkdir -p "${BRIDGE_CLI_DIR}"
+                        mv bridge-cli-bundle-linux64 "${BRIDGE_CLI_DIR}/"
+                        chmod -R +x "${BRIDGE_CLI_DIR}/bridge-cli-bundle-linux64"
+
+                        # Verify Bridge CLI
+                        "${BRIDGE_CLI_DIR}/bridge-cli-bundle-linux64/bridge-cli" --version
+
+                        # Download and install Go
                         curl -LO https://go.dev/dl/go${GO_VERSION}.linux-amd64.tar.gz
                         rm -rf /tmp/go
                         tar -C /tmp -xzf go${GO_VERSION}.linux-amd64.tar.gz
                         export PATH=/tmp/go/bin:\$PATH
 
+                        # Run Bridge CLI scan
                         "${BRIDGE_CLI_DIR}/bridge-cli-bundle-linux64/bridge-cli" \
                             --stage blackducksca \
                             blackducksca.url="https://blackduck.saas-preprod.beescloud.com/" \
