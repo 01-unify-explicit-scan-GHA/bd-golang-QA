@@ -36,14 +36,16 @@ spec:
                     sh '''
                         apt-get update && apt-get install -y curl default-jdk
 
-                        mkdir -p "$BRIDGE_CLI_DIR"
-
                         # Download with error check
                         curl -f -L "https://repo.blackduck.com/bds-integrations-release/com/blackduck/integration/bridge/binaries/bridge-cli-bundle/latest/bridge-cli-bundle-linux64.zip" \
                             -o bridge.zip
 
-                        # Extract with jar (no unzip needed)
-                        (cd "$BRIDGE_CLI_DIR" && jar -xf ../bridge.zip)
+                        # Extract with jar to current directory
+                        jar -xf bridge.zip
+
+                        # Move extracted directory to BRIDGE_CLI_DIR
+                        mkdir -p "$BRIDGE_CLI_DIR"
+                        mv bridge-cli-bundle-linux64 "$BRIDGE_CLI_DIR/"
 
                         # check if the binary exists
                         ls -lrt ${BRIDGE_CLI_DIR}
