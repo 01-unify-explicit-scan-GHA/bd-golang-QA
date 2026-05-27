@@ -26,11 +26,14 @@ pipeline {
                         }
                     }
 
+                    # Clean up any previous Bridge CLI installation
+                    rm -rf "${BRIDGE_CLI_DIR}"
+                    mkdir -p "${BRIDGE_CLI_DIR}"
+
                     # Download and extract Bridge CLI
                     curl -f -L "https://repo.blackduck.com/bds-integrations-release/com/blackduck/integration/bridge/binaries/bridge-cli-bundle/latest/bridge-cli-bundle-linux64.zip" \
                         -o bridge.zip
                     jar -xf bridge.zip
-                    mkdir -p "${BRIDGE_CLI_DIR}"
                     mv bridge-cli-bundle-linux64 "${BRIDGE_CLI_DIR}/"
                     chmod -R +x "${BRIDGE_CLI_DIR}/bridge-cli-bundle-linux64"
 
@@ -45,6 +48,9 @@ pipeline {
 
                     # Verify Go installation
                     /tmp/go/bin/go version
+
+                    # Create output directory for SARIF report
+                    mkdir -p output
 
                     # Run Bridge CLI scan
                     "${BRIDGE_CLI_DIR}/bridge-cli-bundle-linux64/bridge-cli" \
